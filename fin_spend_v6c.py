@@ -942,9 +942,9 @@ class MonthlyFinanceTracker:
             with self.output:
                 clear_output()
                 print("❌ Vui lòng nhập đầy đủ thông tin tiết kiệm/đầu tư!")
-    
+    """
     def load_selected_savings(self, button):
-        """Tải thông tin khoản tiết kiệm/đầu tư đã chọn"""
+        #Tải thông tin khoản tiết kiệm/đầu tư đã chọn
         selected_key = self.existing_savings_dropdown.value
         if selected_key == '':
             # Clear form for new savings
@@ -987,6 +987,59 @@ class MonthlyFinanceTracker:
                 print(f"   💰 Tổng đã đầu tư: {self.format_currency(total_amount)}")
                 print(f"   📊 Số lần giao dịch: {count}")
                 print("📝 Bạn có thể thêm giao dịch mới hoặc cập nhật")
+    """
+    def load_selected_savings(self, button):
+        """Tải thông tin khoản tiết kiệm/đầu tư đã chọn"""
+        selected_key = self.existing_savings_dropdown.value
+        if selected_key == '':
+            # Clear form for new savings
+            self.savings_type.value = 'Tiết kiệm ngân hàng'
+            self.savings_description.value = ''
+            self.savings_amount.value = 0.0
+            self.savings_currency.value = 'VND'
+            
+            with self.output:
+                clear_output()
+                print("📝 Form đã được reset để tạo khoản mới")
+            return
+        
+        # Tìm khoản tiết kiệm/đầu tư theo key mới (có currency)
+        target_savings = None
+        total_amount = 0
+        count = 0
+        target_currency = None
+        
+        for saving in self.savings_data:
+            # Key mới bao gồm currency: "Type - Description (Currency)"
+            key = f"{saving['type']} - {saving['description']} ({saving['currency']})"
+            if key == selected_key:
+                if target_savings is None:
+                    target_savings = saving
+                    target_currency = saving['currency']
+                
+                # Cộng trực tiếp vì cùng loại tiền tệ (không cần chuyển đổi)
+                total_amount += saving['amount']
+                count += 1
+        
+        if target_savings:
+            # Populate form with savings data
+            self.savings_type.value = target_savings['type']
+            self.savings_description.value = target_savings['description']
+            self.savings_amount.value = 0.0  # Reset amount for new entry
+            self.savings_currency.value = target_savings.get('currency', 'VND')
+            
+            with self.output:
+                clear_output()
+                print(f"✅ Đã tải thông tin: {target_savings['description']}")
+                print(f"   💎 Loại: {target_savings['type']}")
+                print(f"   💰 Tổng số dư: {self.format_currency(total_amount, target_currency)}")
+                print(f"   💱 Loại tiền tệ: {target_currency}")
+                print(f"   📊 Số lần giao dịch: {count}")
+                print("📝 Bạn có thể thêm giao dịch mới (số dương) hoặc rút tiền (số âm)")
+        else:
+            with self.output:
+                clear_output()
+                print("❌ Không tìm thấy thông tin khoản tiết kiệm đã chọn")
 
     """
     def update_savings(self, button):
