@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tính toán tọa độ tứ giác</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        .input-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 16px;
+        }
+        input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+        button {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin: 10px 5px;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+        .results {
+            background: rgba(0,0,0,0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        .coordinate {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
+        canvas {
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 10px;
+            background: rgba(0,0,0,0.2);
+            margin-top: 20px;
+        }
+        .info {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔢 Tính toán tọa độ tứ giác</h1>
+        
+        <div class="input-group">
+            <label>Cạnh a:</label>
+            <input type="number" id="sideA" value="5" step="0.01">
+        </div>
+        
+        <div class="input-group">
+            <label>Cạnh b:</label>
+            <input type="number" id="sideB" value="31.11" step="0.01">
+        </div>
+        
+        <div class="input-group">
+            <label>Cạnh c:</label>
+            <input type="number" id="sideC" value="5" step="0.01">
+        </div>
+        
+        <div class="input-group">
+            <label>Cạnh d:</label>
+            <input type="number" id="sideD" value="30.83" step="0.01">
+        </div>
+        
+        <div class="input-group">
+            <label>Diện tích:</label>
+            <input type="number" id="area" value="153.7" step="0.01">
+        </div>
+        
+        <button onclick="calculateCoordinates()">Tính toán tọa độ</button>
+        <button onclick="clearResults()">Xóa kết quả</button>
+        
+        <div id="results" class="results" style="display:none;">
+            <h3>📍 Tọa độ các đỉnh:</h3>
+            <div id="coordinates"></div>
+            
+            <div class="info">
+                <h4>📐 Thông tin tứ giác:</h4>
+                <div id="info"></div>
+            </div>
+        </div>
+        
+        <canvas id="canvas" width="600" height="400" style="display:none;"></canvas>
+    </div>
+
+    <script>
+        // Hàm tính khoảng cách giữa 2 điểm
+        function distance(p1, p2) {
+            return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+        }
+        
+        // Hàm tính khoảng cách từ điểm đến đường thẳng
+        function distancePointToLine(point, linePoint1, linePoint2) {
+            const x0 = point.x, y0 = point.y;
+            const x1 = linePoint1.x, y1 = linePoint1.y;
+            const x2 = linePoint2.x, y2 = linePoint2.y;
+            
+            // Công thức khoảng cách từ điểm đến đường thẳng
+            const A = y2 - y1;
+            const B = x1 - x2;
+            const C = x2 * y1 - x1 * y2;
+            
+            return Math.abs(A * x0 + B * y0 + C) / Math.sqrt(A * A + B * B);
+        }
+
+        // Hàm tìm chân đường vuông góc
+        function getPerpendicularFoot(point, lineStart, lineEnd) {
+            const x0 = point.x, y0 = point.y;
+            const x1 = lineStart.x, y1 = lineStart.y;
+            const x2 = lineEnd.x, y2 = lineEnd.y;
+            
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const lengthSquared = dx * dx + dy * dy;
+            
+            if (lengthSquared === 0) {
+                return lineStart;
+            }
+            
+            const t = ((x0 - x1) * dx + (y0 - y1) * dy) / lengthSquared;
+            
+            return {
+                x: x1 + t * dx,
+                y: y1 + t * dy
+            };
+        }
+        
+        // Hàm tính diện tích tứ giác bằng công thức Shoelace
+        function calculateQuadrilateralArea(A, B, C, D) {
+            return 0.5 * Math.abs(
+                A.x * (B.y - D.y) +
+                B.x * (C.y - A.y) +
+                C.x * (D.y - B.y) +
+                D.x * (A.y - C.y)
+            );
+        }
+        
+        // Hàm tìm điểm D
+        function findPointD(A, C, distCD, distDA) {
+            const solutions = [];
+            const cx = C.x, cy = C.y;
+            const r1_sq = distCD * distCD;
+            const r2_sq = distDA * distDA;
+            
+            const k = (r2_sq - r1_sq + cx*cx + cy*cy) / 2;
+            
+            if (cy !== 0) {
+                const a_coef = 1 + (cx*cx)/(cy*cy);
+                const b_coef = -2*cx*k/(cy*cy);
+                const c_coef = (k*k)/(cy*cy) - r2_sq;
+                
+                const discriminant = b_coef*b_coef - 4*a_coef*c_coef;
+                
+                if (discriminant >= 0) {
+                    const sqrt_disc = Math.sqrt(discriminant);
+                    const x1 = (-b_coef + sqrt_disc) / (2*a_coef);
+                    const x2 = (-b_coef - sqrt_disc) / (2*a_coef);
+                    
+                    const y1 = (k - cx*x1) / cy;
+                    const y2 = (k - cx*x2) / cy;
+                    
+                    solutions.push({x: x1, y: y1});
+                    if (discriminant > 0) {
+                        solutions.push({x: x2, y: y2});
+                    }
+                }
+            } else if (cx !== 0) {
+                const x = k / cx;
+                const y_sq = r2_sq - x*x;
+                
+                if (y_sq >= 0) {
+                    const y = Math.sqrt(y_sq);
+                    solutions.push({x: x, y: y});
+                    if (y_sq > 0) {
+                        solutions.push({x: x, y: -y});
+                    }
+                }
+            }
+            
+            return solutions;
+        }
+        
+        // Hàm vẽ đường vuông góc
+        function drawPerpendicular(ctx, transform, point, lineStart, lineEnd, color, label) {
+            const foot = getPerpendicularFoot(point, lineStart, lineEnd);
+            
+            const tPoint = transform(point);
+            const tFoot = transform(foot);
+            
+            // Vẽ đường vuông góc
+            ctx.beginPath();
+            ctx.moveTo(tPoint.x, tPoint.y);
+            ctx.lineTo(tFoot.x, tFoot.y);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Vẽ điểm chân đường vuông góc
+            ctx.beginPath();
+            ctx.arc(tFoot.x, tFoot.y, 4, 0, 2 * Math.PI);
+            ctx.fillStyle = color;
+            ctx.fill();
+            
+            // Vẽ nhãn
+            const midX = (tPoint.x + tFoot.x) / 2;
+            const midY = (tPoint.y + tFoot.y) / 2;
+            ctx.fillStyle = color;
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, midX + 10, midY - 5);
+        }
+        
+        // Hàm tính toán tọa độ chính
+        function calculateCoordinates() {
+            const a = parseFloat(document.getElementById('sideA').value);
+            const b = parseFloat(document.getElementById('sideB').value);
+            const c = parseFloat(document.getElementById('sideC').value);
+            const d = parseFloat(document.getElementById('sideD').value);
+            const targetArea = parseFloat(document.getElementById('area').value);
+            
+            if (!a || !b || !c || !d || !targetArea) {
+                alert('Vui lòng nhập đầy đủ các giá trị!');
+                return;
+            }
+            
+            // Kiểm tra điều kiện tồn tại tứ giác
+            const maxSide = Math.max(a, b, c, d);
+            const sumOthers = a + b + c + d - maxSide;
+            
+            if (maxSide >= sumOthers) {
+                alert('Các cạnh này không thể tạo thành tứ giác!');
+                return;
+            }
+            
+            // Đặt A tại gốc tọa độ, B trên trục x dương
+            const A = {x: 0, y: 0};
+            const B = {x: a, y: 0};
+            
+            // Tìm C và D bằng phương pháp tối ưu hóa
+            let bestSolution = null;
+            let minError = Infinity;
+            
+            // Thử nhiều vị trí khác nhau cho C
+            for (let angle1 = 0; angle1 < 2 * Math.PI; angle1 += 0.1) {
+                const C = {
+                    x: B.x + b * Math.cos(angle1),
+                    y: B.y + b * Math.sin(angle1)
+                };
+                
+                // Tìm D sao cho |CD| = c và |DA| = d
+                const solutions = findPointD(A, C, c, d);
+                
+                for (let D of solutions) {
+                    if (D) {
+                        const calculatedArea = calculateQuadrilateralArea(A, B, C, D);
+                        const error = Math.abs(calculatedArea - targetArea);
+                        
+                        if (error < minError) {
+                            minError = error;
+                            bestSolution = {A, B, C, D, area: calculatedArea};
+                        }
+                    }
+                }
+            }
+            
+            if (bestSolution && minError < 1.0) {
+                displayResults(bestSolution);
+                drawQuadrilateral(bestSolution.A, bestSolution.B, bestSolution.C, bestSolution.D);
+            } else {
+                alert('Không tìm được tứ giác phù hợp với các điều kiện đã cho!');
+            }
+        }
+        
+        // Hàm hiển thị kết quả
+        function displayResults(solution) {
+            const {A, B, C, D, area} = solution;
+            
+            const coordinatesDiv = document.getElementById('coordinates');
+            coordinatesDiv.innerHTML = `
+                <div class="coordinate">A: (${A.x.toFixed(3)}, ${A.y.toFixed(3)})</div>
+                <div class="coordinate">B: (${B.x.toFixed(3)}, ${B.y.toFixed(3)})</div>
+                <div class="coordinate">C: (${C.x.toFixed(3)}, ${C.y.toFixed(3)})</div>
+                <div class="coordinate">D: (${D.x.toFixed(3)}, ${D.y.toFixed(3)})</div>
+            `;
+            
+            const infoDiv = document.getElementById('info');
+            const actualSides = [
+                distance(A, B),
+                distance(B, C),
+                distance(C, D),
+                distance(D, A)
+            ];
+            
+            // Tính khoảng cách từ điểm đến đường thẳng
+            const distB_AD = distancePointToLine(B, A, D);
+            const distD_BC = distancePointToLine(D, B, C);
+            
+            infoDiv.innerHTML = `
+                <p><strong>Độ dài các cạnh thực tế:</strong></p>
+                <p>AB = ${actualSides[0].toFixed(3)}</p>
+                <p>BC = ${actualSides[1].toFixed(3)}</p>
+                <p>CD = ${actualSides[2].toFixed(3)}</p>
+                <p>DA = ${actualSides[3].toFixed(3)}</p>
+                <p><strong>Diện tích tính được:</strong> ${area.toFixed(3)}</p>
+                <hr style="margin: 15px 0; border: 1px solid rgba(255,255,255,0.3);">
+                <p><strong>Khoảng cách từ điểm đến cạnh:</strong></p>
+                <p style="color: #FFD93D;">🔸 Khoảng cách từ B đến cạnh AD: ${distB_AD.toFixed(3)}</p>
+                <p style="color: #6BCF7F;">🔸 Khoảng cách từ D đến cạnh BC: ${distD_BC.toFixed(3)}</p>
+            `;
+            
+            document.getElementById('results').style.display = 'block';
+        }
+        
+        // Hàm vẽ tứ giác
+        function drawQuadrilateral(A, B, C, D) {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.style.display = 'block';
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Tìm phạm vi để scale
+            const points = [A, B, C, D];
+            const minX = Math.min(...points.map(p => p.x));
+            const maxX = Math.max(...points.map(p => p.x));
+            const minY = Math.min(...points.map(p => p.y));
+            const maxY = Math.max(...points.map(p => p.y));
+            
+            const padding = 50;
+            const scaleX = (canvas.width - 2 * padding) / (maxX - minX);
+            const scaleY = (canvas.height - 2 * padding) / (maxY - minY);
+            const scale = Math.min(scaleX, scaleY);
+            
+            function transform(point) {
+                return {
+                    x: (point.x - minX) * scale + padding,
+                    y: canvas.height - ((point.y - minY) * scale + padding)
+                };
+            }
+            
+            const tA = transform(A);
+            const tB = transform(B);
+            const tC = transform(C);
+            const tD = transform(D);
+            
+            // Vẽ tứ giác
+            ctx.beginPath();
+            ctx.moveTo(tA.x, tA.y);
+            ctx.lineTo(tB.x, tB.y);
+            ctx.lineTo(tC.x, tC.y);
+            ctx.lineTo(tD.x, tD.y);
+            ctx.closePath();
+            ctx.strokeStyle = '#4ECDC4';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Vẽ đường cao từ B đến AD và từ D đến BC
+            drawPerpendicular(ctx, transform, B, A, D, '#FFD93D', 'B→AD');
+            drawPerpendicular(ctx, transform, D, B, C, '#6BCF7F', 'D→BC');
+            
+            // Vẽ các đỉnh
+            const vertexData = [
+                {point: tA, label: 'A'},
+                {point: tB, label: 'B'},
+                {point: tC, label: 'C'},
+                {point: tD, label: 'D'}
+            ];
+            
+            vertexData.forEach(({point, label}) => {
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 8, 0, 2 * Math.PI);
+                ctx.fillStyle = '#FF6B6B';
+                ctx.fill();
+                
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(label, point.x, point.y - 15);
+            });
+        }
+        
+        // Hàm xóa kết quả
+        function clearResults() {
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('canvas').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
